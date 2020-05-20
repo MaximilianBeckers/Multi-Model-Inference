@@ -12,8 +12,9 @@ library(matrixStats)
 #****set some paramters****
 #**************************
 num_neighbours = 20;
-num_min_points = 20;
-num_clusters = 3;
+num_clusters = 5;
+chain = "A";
+C_alpha = TRUE;
 #**************************
 #**************************
 
@@ -37,15 +38,26 @@ num_structures = length(myFileNames)
 pdbs = pdbaln(myFileNames, fit=TRUE)
 
 #read all atoms
-#xyz <- NULL
-#for(i in myFileNames) {
-#  print(i)
-#  data = read.pdb(i);
-#  xyz = rbind(xyz, c(data$atom$x[(data$atom$chain == "G")], data$atom$y[(data$atom$chain == "G")], data$atom$z[(data$atom$chain == "G")] ))
-#}
-
+xyz <- NULL
+if(C_alpha==FALSE){
+  for(i in myFileNames) {
+    print(i)
+    data = read.pdb(i);
+    
+    row = c()
+    for(i in (1:length(data$atom$x[(data$atom$chain == chain)]))){
+      row = c(row, data$atom$x[i], data$atom$y[i], data$atom$z[i])
+    }
+    xyz = rbind(xyz, row)
+    chain_A_pdb = trim.pdb(data, atom.select(data, chain=chain))
+  }
+}
 #get number of chains
-chain_ids = unique(pdbs$chain[myFileNames[1], ])
+if(chain ==""){
+  chain_ids = unique(pdbs$chain[myFileNames[1], ])
+}else{
+  chain_ids = c(chain)
+}
 
 for(chain_index in chain_ids){
   
@@ -56,21 +68,21 @@ for(chain_index in chain_ids){
   
   trimmed_pdbs = trim.pdbs(pdbs, col.inds = which((pdbs$chain[myFileNames[1], ] == chain_index)))
   
-  #make cross correlation matrix
-  #cij<-dccm(trimmed_pdbs$xyz)
-  #plot(cij)
-  
-  xyz = (data.frame(trimmed_pdbs$xyz))
-  
-  #xyz = xyz[1:300,]
+  if(C_alpha){
+    xyz = (data.frame(trimmed_pdbs$xyz))
+  }
+  #xyz = xyz[1:400,]
   
   #******************************
   #******* do clustering ********
   #******************************
   
   #do clustering
-  #clusters = hdbscan(xyz, minPts = num_min_points)
   clusters = kmeans(xyz, centers=num_clusters)
+  
+  for(cluster_ind in c(1:num_clusters)){
+    print(paste("size of cluster ", cluster_ind, ": ", clusters$size[cluster_ind]/sum(clusters$size)*100, "%",  sep=""))
+  }
   
   #******************************
   #********** do PCA ************
@@ -93,8 +105,8 @@ for(chain_index in chain_ids){
   var_data <- data.frame((1:20), var_exp, var_cum)
   
   p1 <- ggplot(data=data.frame(prediction), aes(x = PC1, y=PC2, col = factor(clusters$cluster))) +
-    geom_point(size=1) + ggtitle("PCA plot") + scale_colour_discrete("Cluster") +
-    labs(y= paste("PC2"), x = paste("PC1")) + theme(legend.title = element_blank())
+    geom_point(size=1) + ggtitle("PCA plot") + labs(y= paste("PC2"), x = paste("PC1")) + 
+    scale_fill_discrete(name="", labels=c("Control", "Treatment 1", "Treatment 2")) + theme(legend.title = element_blank()) 
   
   p2 <- ggplot(var_data, aes(x = X.1.20., y=100*var_exp)) + geom_line() + geom_point() + 
     labs(x="Principal component", y = "Proportion of variance [%]") + ggtitle("Explained variances") +
@@ -135,12 +147,10 @@ for(chain_index in chain_ids){
   probe_models[] = 0
   probe_models[1] = 1
   probe_models[2] = 2
-  
+
   ggplot(data=embedding, aes(x = X1, y=X2, col = factor(probe_models))) +
     geom_point(size=1) + labs(y="UMAP2", x ="UMAP1") + scale_colour_manual(values = c("grey", "blue", "red"))
   ggsave("probed_TMV.jpg", dpi=300)
-  
-  
   
   #******************************
   #*** write output pdbs/pdfs ***
@@ -154,22 +164,24 @@ for(chain_index in chain_ids){
     filename = paste("cluster_", cluster_ind, ".pdb", sep = "")
     write.pdb(xyz=as.matrix(xyz[(clusters$cluster==cluster_ind),]), file=filename)
     
-    
     #get structure closest to centroid
     min_dist = 10^20;
     center_index = 0;
     for(structure_index in as.numeric(which(clusters$cluster==cluster_ind))){
       dist = norm(as.numeric(xyz[structure_index,]) - clusters$centers[cluster_ind,], type="2")
       if(dist<min_dist){
+        min_dist = dist
         center_index = structure_index;
       }
     }
     
     #write mean structure of cluster
     filename = paste("center_cluster", cluster_ind, ".pdb", sep = "")
-    #write.pdb(xyz=colMeans(as.matrix(xyz[(clusters$cluster==cluster_ind),])), file=filename)
-    write.pdb(xyz= clusters$centers[cluster_ind,], file=filename)  
-    #write.pdb(xyz=as.numeric(xyz[structure_index,]), file=filename)  
+    if(C_alpha){
+      write.pdb(xyz=as.numeric(xyz[center_index,]), file=filename) 
+    }else{
+      write.pdb(xyz=as.numeric(xyz[center_index,]), file=filename, pdb=chain_A_pdb) 
+    }
   }
   
   pdf('clustering.pdf', width = 7, height = 5)
