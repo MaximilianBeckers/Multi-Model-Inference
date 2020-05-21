@@ -11,7 +11,8 @@ class MultiModel:
     pca_embedding = [];
     explained_variances = [];
     umap_embedding = [];
-    clusters = [];
+    classes = [];
+
 
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False):
@@ -23,7 +24,7 @@ class MultiModel:
 
         #align the structures
         if align:
-            print("Everything aligned to first model...")
+            print("Aligning the atomic models based on C-alpha positions ...")
             ref_model = self.coordinates[0];
             num_structures = len(self.coordinates);
 
@@ -92,24 +93,25 @@ class MultiModel:
 
         self.coord_array = np.asarray(self.coord_array)
 
+
     #**************************************
     def do_pca_embedding(self):
 
         from sklearn.decomposition import PCA
         pca = PCA();
         pca.fit(self.coord_array);
-        self.explained_variances = pca.explained_variance_ratio_
+        self.explained_variances = pca.explained_variance_ratio_ * 100;
 
         pca = PCA(n_components=2);
         pca.fit(self.coord_array);
         self.pca_embedding = pca.fit_transform(self.coord_array);
 
-        print(self.explained_variances);
 
     #**************************************
     def do_tsne_embedding(self):
 
         self.tsne_embedding = TSNE(n_components=2).fit_transform(self.coord_array);
+
 
     #**************************************
     def do_umap_embedding(self):
@@ -119,23 +121,27 @@ class MultiModel:
         fit = umap.UMAP();
         self.umap_embedding = fit.fit_transform(self.coord_array);
 
+
     #***************************************
-    def do_clustering(self, num_clusters):
+    def do_classification(self, num_classes):
 
         from sklearn.cluster import KMeans
-        self.clusters = KMeans(n_clusters=num_clusters, random_state=0).fit(self.coord_array);
+        self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+
 
     #***************************************
     def make_plots(self):
 
-
         #plot pca
-        plt.scatter(self.pca_embedding[0,:], self.pca_embedding[1,:], c=self.clusters.labels_)
+        plt.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_)
         plt.title('PCA plot');
         plt.show()
 
         #plot explained variances
-        plt.plot(range(self.pca_embedding.shape[1]), self.explained_variances);
+        plt.plot(range(1,21,1), self.explained_variances[0:20], linewidth=1.5);
+        plt.xticks(np.arange(1, 21, step=1))
+        plt.xlabel('Principal Component')
+        plt.ylabel('Explained variance [%]')
         plt.title('Explained variances per principal component');
         plt.show();
 
@@ -143,16 +149,16 @@ class MultiModel:
     #***************************************
     def write_pdbs(self):
 
-        num_clusters = self.clusters.cluster_centers_.shape[0];
-        num_samples = self.clusters.labels.shape[0];
+        num_classes = self.classes.cluster_centers_.shape[0];
+        num_samples = self.classes.labels.shape[0];
 
-        for tmp_cluster in range(num_clusters):
+        for tmp_class in range(num_classes):
 
             #get sample closest to center of cluster
             min_dist = 10^10;
             center_index = 0;
             for tmp_sample in range(num_samples):
-                tmp_dist = np.sqrt(np.sum((self.coord_array[tmp_sample,] - self.clusters.cluster_centers[tmp_cluster])^2));
+                tmp_dist = np.sqrt(np.sum((self.coord_array[tmp_sample,] - self.classes.cluster_centers[tmp_class])^2));
 
                 if tmp_dist < min_dist:
                     center_index = tmp_sample;
@@ -161,6 +167,6 @@ class MultiModel:
             #write the structure
             io = PDBIO()
             io.set_structure(self.coordinates[center_index])
-            io.save('Center_Cluster' + repr(tmp_cluster) + '.pdb');
+            io.save('Center_Cluster' + repr(tmp_class) + '.pdb');
 
             #write all files in the cluster
