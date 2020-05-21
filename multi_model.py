@@ -123,26 +123,27 @@ class MultiModel:
     def do_clustering(self, num_clusters):
 
         from sklearn.cluster import KMeans
-        self.clusters = KMeans(n_clusters=num_clusters, random_state=0).fit(self.coordinates);
+        self.clusters = KMeans(n_clusters=num_clusters, random_state=0).fit(self.coord_array);
 
     #***************************************
     def make_plots(self):
 
 
         #plot pca
-        plt.scatter(self.pca_embedding[0,:], self.pca_embedding[1,:], c=self.clusters.labels)
-        plt.title('PCA embedding of random colours');
+        plt.scatter(self.pca_embedding[0,:], self.pca_embedding[1,:], c=self.clusters.labels_)
+        plt.title('PCA plot');
         plt.show()
 
         #plot explained variances
         plt.plot(range(self.pca_embedding.shape[1]), self.explained_variances);
         plt.title('Explained variances per principal component');
+        plt.show();
 
 
     #***************************************
     def write_pdbs(self):
 
-        num_clusters = self.clusters.cluster_centers.shape[0];
+        num_clusters = self.clusters.cluster_centers_.shape[0];
         num_samples = self.clusters.labels.shape[0];
 
         for tmp_cluster in range(num_clusters):
