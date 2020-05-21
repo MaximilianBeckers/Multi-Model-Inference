@@ -8,8 +8,6 @@
 ##########################
 ###### define input ######
 ##########################
-halfmap1=EMD-3061-half1.mrc
-halfmap2=EMD-3061-half2.mrc
 map=../emd_10129.map
 pdb_input=6sae.pdb
 res=1.9
