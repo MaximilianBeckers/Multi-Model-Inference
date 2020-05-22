@@ -1,0 +1,23 @@
+# Compiled python modules
+*.py[co]
+
+# OS files
+.DS_Store
+
+#any images
+*.png
+*.jpg
+
+#any csv
+*.csv
+
+# Distribution artifacts
+/build/
+/dist/
+/*.egg-info
+
+# IDE files
+.project
+.pydevproject
+.settings/
+.idea/

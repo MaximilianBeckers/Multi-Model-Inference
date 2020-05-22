@@ -23,18 +23,17 @@ class MultiModel:
 
         #align the structures
         if align:
-            print("Aligning the atomic models based on C-alpha positions ...")
+            print("Aligning the atomic models based on C-alpha positions ...");
             ref_model = self.coordinates[0];
             num_structures = len(self.coordinates);
-
 
             for model_ind in range(num_structures):
 
                 alt_model = self.coordinates[model_ind];
 
                 # Build paired lists of c-alpha atoms, ref_atoms and alt_atoms
-                ref_atoms = []
-                alt_atoms = []
+                ref_atoms = [];
+                alt_atoms = [];
                 for (ref_chain, alt_chain) in zip(ref_model, alt_model):
                     for ref_res, alt_res in zip(ref_chain, alt_chain):
                         assert ref_res.resname == alt_res.resname
@@ -131,33 +130,47 @@ class MultiModel:
     #***************************************
     def make_plots(self):
 
+        from matplotlib.backends.backend_pdf import PdfPages
+        import matplotlib.gridspec as gridspec
+
+        num_clusters = self.classes.cluster_centers_.shape[0]
+
+        # make diagnostics plot
+        plt.rc('xtick', labelsize=8);  # fontsize of the tick labels
+        plt.rc('ytick', labelsize=8);  # fontsize of the tick labels
+        gs = gridspec.GridSpec(2, 2);
+
         #plot pca
-        plt.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_)
-        plt.title('PCA plot');
-        plt.show()
+        ax1 = plt.subplot(gs[0, 0]);
+        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_)
+        ax1.set_title('PCA plot');
+        ax1.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
 
         #plot explained variances
-        plt.plot(range(1,21,1), self.explained_variances[0:20], linewidth=1.5);
-        plt.xticks(np.arange(1, 21, step=1))
-        plt.xlabel('Principal Component')
-        plt.ylabel('Explained variance [%]')
-        plt.title('Explained variances per principal component');
-        plt.show();
+        ax2 = plt.subplot(gs[0, 1]);
+        ax2.plot(range(1, 21, 1), self.explained_variances[0:20], linewidth=2);
+        ax2.set_xticks(np.arange(1, 21, step=1))
+        ax2.set_xlabel('Principal Component')
+        ax2.set_ylabel('Explained variance [%]')
+        ax2.set_title('Explained variances per principal component');
 
         #plot t-SNE
-        plt.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_)
-        plt.title('t-SNE plot');
-        plt.xlabel('t-SNE 1')
-        plt.ylabel('t-SNE 2')
-        plt.show()
+        ax3 = plt.subplot(gs[1, 0]);
+        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_)
+        ax3.set_title('t-SNE plot');
+        ax3.set_xlabel('t-SNE 1');
+        ax3.set_ylabel('t-SNE 2');
+        ax3.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
 
         #plot umap
-        plt.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_)
-        plt.title('UMAP plot');
-        plt.xlabel('UMAP 1')
-        plt.ylabel('UMAP 2')
-        plt.show()
+        ax4 = plt.subplot(gs[1, 1]);
+        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_)
+        ax4.set_title('UMAP plot');
+        ax4.set_xlabel('UMAP 1');
+        ax4.set_ylabel('UMAP 2');
+        ax4.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
 
+        plt.savefig("model_classification.pdf", dpi=300);
 
     #***************************************
     def write_pdbs(self):
