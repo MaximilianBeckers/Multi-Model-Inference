@@ -1,9 +1,7 @@
-from multi_model import MultiModel
+from MultiModel import MultiModel
 import argparse, os, sys
 import os.path
 import time
-
-
 
 
 # *************************************************************
@@ -41,22 +39,28 @@ def main():
 	# get command line input
 	args = cmdl_parser.parse_args();
 
-
 	num_classes = args.num_classes;
 	files = args.pdbs;
+	if args.chain is None:
+		chain = "";
+	else:
+		chain = args.chain;
+
 	if args.num_neighbors is None:
 		num_neighbors = int(0.1*len(files));
 	else:
 		num_neighbors = args.num_neighbors;
 
 	m = MultiModel();
-	m.read_pdbs(files, CA = args.CA);
+	m.read_pdbs(files, CA = args.CA, chain=chain);
 	m.do_classification(num_classes);
 	m.do_pca_embedding();
 	m.do_umap_embedding(num_neighbors);
 	m.do_tsne_embedding(num_neighbors);
 	m.make_plots();
-	m.write_pdbs();
+
+	if args.num_classes>1:
+		m.write_pdbs();
 
 	end = time.time();
 	totalRuntime = end - start;

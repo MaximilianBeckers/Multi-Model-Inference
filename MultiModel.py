@@ -2,6 +2,7 @@ import numpy as np
 import Bio.PDB
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import os
 
 class MultiModel:
 
@@ -14,7 +15,7 @@ class MultiModel:
     classes = [];
 
     #************************************
-    def read_pdbs(self, filenames, align=True, CA=False):
+    def read_pdbs(self, filenames, align=True, CA=False, chain=""):
 
         print("Loading PDB files ...");
 
@@ -34,7 +35,31 @@ class MultiModel:
                 # Build paired lists of c-alpha atoms, ref_atoms and alt_atoms
                 ref_atoms = [];
                 alt_atoms = [];
-                for (ref_chain, alt_chain) in zip(ref_model, alt_model):
+
+                if chain == "":
+                    #analyse all chains
+                    for (ref_chain, alt_chain) in zip(ref_model, alt_model):
+
+                        for ref_res, alt_res in zip(ref_chain, alt_chain):
+                            assert ref_res.resname == alt_res.resname
+                            assert ref_res.id == alt_res.id
+
+                            # CA = alpha carbon
+                            aa = True;
+                            try:
+                                ref_res['CA'];
+                            except:
+                                aa = False;
+
+                            if aa:
+                                ref_atoms.append(ref_res['CA']);
+                                alt_atoms.append(alt_res['CA']);
+
+                else:
+                    #subset the desired chain
+                    ref_chain = ref_model[chain];
+                    alt_chain = alt_model[chain];
+
                     for ref_res, alt_res in zip(ref_chain, alt_chain):
                         assert ref_res.resname == alt_res.resname
                         assert ref_res.id == alt_res.id
@@ -49,7 +74,6 @@ class MultiModel:
                         if aa:
                             ref_atoms.append(ref_res['CA']);
                             alt_atoms.append(alt_res['CA']);
-
 
                 # Align these paired atom lists:
                 super_imposer = Bio.PDB.Superimposer()
@@ -73,18 +97,34 @@ class MultiModel:
         for tmp_model in self.coordinates:
 
             tmp_coord = [];
-            for tmp_chain in tmp_model:
+
+            if chain == "":
+                for tmp_chain in tmp_model:
+                    for tmp_res in tmp_chain:
+                        if(CA):
+                            try:#if CA atom exists, append it
+                                tmp_atom = tmp_res['CA'];
+                                tmp_coord.append(tmp_atom.get_coord());
+                            except:
+                                pass
+                        else:
+                            #append all atoms
+                            for tmp_atom in tmp_res:
+                                tmp_coord.append( tmp_atom.get_coord());
+            else:
+                tmp_chain = tmp_model[chain];
                 for tmp_res in tmp_chain:
-                    if(CA):
-                        try:#if CA atom exists, append it
+                    if (CA):
+                        try:  # if CA atom exists, append it
                             tmp_atom = tmp_res['CA'];
                             tmp_coord.append(tmp_atom.get_coord());
                         except:
                             pass
                     else:
-                        #append all atoms
+                        # append all atoms
                         for tmp_atom in tmp_res:
-                            tmp_coord.append( tmp_atom.get_coord());
+                            tmp_coord.append(tmp_atom.get_coord());
+
 
             tmp_coord = np.asarray(tmp_coord).flatten();
             self.coord_array.append( tmp_coord);
@@ -138,39 +178,45 @@ class MultiModel:
         # make diagnostics plot
         plt.rc('xtick', labelsize=8);  # fontsize of the tick labels
         plt.rc('ytick', labelsize=8);  # fontsize of the tick labels
-        gs = gridspec.GridSpec(2, 2);
+        gs = gridspec.GridSpec(2, 2, wspace=0.5, hspace=0.5);
 
         #plot pca
         ax1 = plt.subplot(gs[0, 0]);
-        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_)
+        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_, s=4.0);
         ax1.set_title('PCA plot');
-        ax1.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
+        ax1.set_xlabel('PC 1');
+        ax1.set_ylabel('PC 2');
+        ax1.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+                   bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
         #plot explained variances
         ax2 = plt.subplot(gs[0, 1]);
         ax2.plot(range(1, 21, 1), self.explained_variances[0:20], linewidth=2);
-        ax2.set_xticks(np.arange(1, 21, step=1))
-        ax2.set_xlabel('Principal Component')
-        ax2.set_ylabel('Explained variance [%]')
-        ax2.set_title('Explained variances per principal component');
+        ax2.set_xticks([1,2,3,4,5,10,15,20]);
+        ax2.set_xlabel('Principal Component');
+        ax2.set_ylabel('Explained variance [%]');
+        ax2.set_title('Explained variances');
 
         #plot t-SNE
         ax3 = plt.subplot(gs[1, 0]);
-        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_)
+        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_, s=4.0);
         ax3.set_title('t-SNE plot');
         ax3.set_xlabel('t-SNE 1');
         ax3.set_ylabel('t-SNE 2');
-        ax3.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
+        ax3.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+                   bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
         #plot umap
         ax4 = plt.subplot(gs[1, 1]);
-        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_)
+        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_, s=4.0);
         ax4.set_title('UMAP plot');
         ax4.set_xlabel('UMAP 1');
         ax4.set_ylabel('UMAP 2');
-        ax4.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Classes' );
+        ax4.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+                   bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
-        plt.savefig("model_classification.pdf", dpi=300);
+        plt.savefig("Model_Classification.pdf", dpi=300);
+
 
     #***************************************
     def write_pdbs(self):
@@ -198,4 +244,3 @@ class MultiModel:
             io.set_structure(self.coordinates[center_index])
             io.save('Center_Cluster' + repr(tmp_class) + '.pdb');
 
-            #write all files in the cluster
