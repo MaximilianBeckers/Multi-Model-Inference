@@ -13,7 +13,6 @@ class MultiModel:
     umap_embedding = [];
     classes = [];
 
-
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False):
 
@@ -108,17 +107,17 @@ class MultiModel:
 
 
     #**************************************
-    def do_tsne_embedding(self):
+    def do_tsne_embedding(self, num_neighbors):
 
-        self.tsne_embedding = TSNE(n_components=2).fit_transform(self.coord_array);
+        self.tsne_embedding = TSNE(n_components=2, perplexity=num_neighbors).fit_transform(self.coord_array);
 
 
     #**************************************
-    def do_umap_embedding(self):
+    def do_umap_embedding(self, num_neighbors):
 
         import umap;
 
-        fit = umap.UMAP();
+        fit = umap.UMAP(n_neighbors=num_neighbors);
         self.umap_embedding = fit.fit_transform(self.coord_array);
 
 
@@ -145,27 +144,44 @@ class MultiModel:
         plt.title('Explained variances per principal component');
         plt.show();
 
+        #plot t-SNE
+        plt.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_)
+        plt.title('t-SNE plot');
+        plt.xlabel('t-SNE 1')
+        plt.ylabel('t-SNE 2')
+        plt.show()
+
+        #plot umap
+        plt.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_)
+        plt.title('UMAP plot');
+        plt.xlabel('UMAP 1')
+        plt.ylabel('UMAP 2')
+        plt.show()
+
 
     #***************************************
     def write_pdbs(self):
 
+        print("Writing class centers as pdbs ...")
+
         num_classes = self.classes.cluster_centers_.shape[0];
-        num_samples = self.classes.labels.shape[0];
+        num_samples = self.classes.labels_.shape[0];
 
         for tmp_class in range(num_classes):
 
             #get sample closest to center of cluster
-            min_dist = 10^10;
+            min_dist = 1.0*10**10;
             center_index = 0;
             for tmp_sample in range(num_samples):
-                tmp_dist = np.sqrt(np.sum((self.coord_array[tmp_sample,] - self.classes.cluster_centers[tmp_class])^2));
+
+                tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
 
                 if tmp_dist < min_dist:
                     center_index = tmp_sample;
                     min_dist = tmp_dist;
 
             #write the structure
-            io = PDBIO()
+            io = Bio.PDB.PDBIO()
             io.set_structure(self.coordinates[center_index])
             io.save('Center_Cluster' + repr(tmp_class) + '.pdb');
 
