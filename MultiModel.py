@@ -182,7 +182,11 @@ class MultiModel:
         from matplotlib.backends.backend_pdf import PdfPages
         import matplotlib.gridspec as gridspec
 
-        num_clusters = self.classes.cluster_centers_.shape[0]
+        num_classes = self.classes.cluster_centers_.shape[0]
+        tmp_label = range(num_classes);
+        label = [""]*num_classes;
+        for class_ind in range(num_classes):
+            label[class_ind] = "{}\n({:.0f}%)".format(tmp_label[class_ind], self.class_size[class_ind]*100);
 
         # make diagnostics plot
         plt.rc('xtick', labelsize=8);  # fontsize of the tick labels
@@ -195,7 +199,7 @@ class MultiModel:
         ax1.set_title('PCA plot');
         ax1.set_xlabel('PC 1');
         ax1.set_ylabel('PC 2');
-        ax1.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+        ax1.legend(handles=scatter.legend_elements()[0], labels=label, title='Class\n(rel.size)', fontsize=4, title_fontsize=4,
                    bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
         #plot explained variances
@@ -206,13 +210,14 @@ class MultiModel:
         ax2.set_ylabel('Explained variance [%]');
         ax2.set_title('Explained variances');
 
+
         #plot t-SNE
         ax3 = plt.subplot(gs[1, 0]);
         scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_, s=4.0);
         ax3.set_title('t-SNE plot');
         ax3.set_xlabel('t-SNE 1');
         ax3.set_ylabel('t-SNE 2');
-        ax3.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+        ax3.legend(handles=scatter.legend_elements()[0], labels=label, title='Class\n(rel.size)', fontsize=4, title_fontsize=4,
                    bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
         #plot umap
@@ -221,8 +226,9 @@ class MultiModel:
         ax4.set_title('UMAP plot');
         ax4.set_xlabel('UMAP 1');
         ax4.set_ylabel('UMAP 2');
-        ax4.legend(handles=scatter.legend_elements()[0], labels=range(num_clusters), title='Class', fontsize=6, title_fontsize=7,
+        ax4.legend(handles=scatter.legend_elements()[0], labels=label, title='Class\n(rel.size)', fontsize=4, title_fontsize=4,
                    bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
+
 
         plt.savefig("Model_Classification.pdf", dpi=300);
 
