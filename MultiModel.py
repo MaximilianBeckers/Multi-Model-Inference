@@ -228,7 +228,7 @@ class MultiModel:
 
 
     #***************************************
-    def write_pdbs(self):
+    def write_pdbs(self, chain):
 
         print("Writing class centers as pdbs ...")
 
@@ -250,6 +250,9 @@ class MultiModel:
 
             #write the structure
             io = Bio.PDB.PDBIO()
-            io.set_structure(self.coordinates[center_index])
+            if chain == "":
+                io.set_structure(self.coordinates[center_index]);
+            else:
+                io.set_structure(self.coordinates[center_index][chain]);
             io.save('Center_Cluster' + repr(tmp_class) + '.pdb');
 

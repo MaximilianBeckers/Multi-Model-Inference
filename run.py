@@ -60,7 +60,7 @@ def main():
 	m.make_plots();
 
 	if args.num_classes>1:
-		m.write_pdbs();
+		m.write_pdbs(chain=chain);
 
 	end = time.time();
 	totalRuntime = end - start;
