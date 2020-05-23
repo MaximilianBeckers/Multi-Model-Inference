@@ -13,6 +13,7 @@ class MultiModel:
     explained_variances = [];
     umap_embedding = [];
     classes = [];
+    class_size = [];
 
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False, chain=""):
@@ -163,9 +164,17 @@ class MultiModel:
     #***************************************
     def do_classification(self, num_classes):
 
+        print("Classifying atomic models ...")
+
         from sklearn.cluster import KMeans
         self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
 
+        #get relative class sizes
+        _, self.class_size = np.unique(self.classes.labels_, return_counts=True);
+        self.class_size = self.class_size/float(np.sum(self.class_size));
+
+        for class_ind in range(num_classes):
+            print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind]*100));
 
     #***************************************
     def make_plots(self):
