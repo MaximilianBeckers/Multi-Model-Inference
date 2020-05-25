@@ -2,6 +2,7 @@ import numpy as np
 import Bio.PDB
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import random
 import os
 
 class MultiModel:
@@ -18,6 +19,7 @@ class MultiModel:
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False, chain=""):
 
+        np.random.seed(30);
         print("Loading PDB files ...");
 
         for tmp_file in filenames:
@@ -149,7 +151,7 @@ class MultiModel:
     #**************************************
     def do_tsne_embedding(self, num_neighbors):
 
-        self.tsne_embedding = TSNE(n_components=2, perplexity=num_neighbors).fit_transform(self.coord_array);
+        self.tsne_embedding = TSNE(n_components=2, perplexity=num_neighbors, init="pca").fit_transform(self.coord_array);
 
 
     #**************************************
@@ -182,6 +184,7 @@ class MultiModel:
         from matplotlib.backends.backend_pdf import PdfPages
         import matplotlib.gridspec as gridspec
 
+        colors = "jet"
         num_classes = self.classes.cluster_centers_.shape[0]
         tmp_label = range(num_classes);
         label = [""]*num_classes;
@@ -193,9 +196,10 @@ class MultiModel:
         plt.rc('ytick', labelsize=8);  # fontsize of the tick labels
         gs = gridspec.GridSpec(2, 2, wspace=0.5, hspace=0.5);
 
+
         #plot pca
         ax1 = plt.subplot(gs[0, 0]);
-        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_, s=4.0);
+        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
         ax1.set_title('PCA plot');
         ax1.set_xlabel('PC 1');
         ax1.set_ylabel('PC 2');
@@ -204,16 +208,20 @@ class MultiModel:
 
         #plot explained variances
         ax2 = plt.subplot(gs[0, 1]);
-        ax2.plot(range(1, 21, 1), self.explained_variances[0:20], linewidth=2);
+        ax2.plot(range(1, 21, 1), self.explained_variances[0:20], linewidth=2, label="variance");
+        ax2.plot(range(1, 21, 1), np.cumsum(self.explained_variances[0:20]), linewidth=2, label="cumulative\nvariance")
         ax2.set_xticks([1,2,3,4,5,10,15,20]);
+        ax2.set_ylim(0,100);
         ax2.set_xlabel('Principal Component');
         ax2.set_ylabel('Explained variance [%]');
         ax2.set_title('Explained variances');
+        ax2.legend( title='', fontsize=4, title_fontsize=4,
+                   bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
 
         #plot t-SNE
         ax3 = plt.subplot(gs[1, 0]);
-        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_, s=4.0);
+        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
         ax3.set_title('t-SNE plot');
         ax3.set_xlabel('t-SNE 1');
         ax3.set_ylabel('t-SNE 2');
@@ -222,7 +230,7 @@ class MultiModel:
 
         #plot umap
         ax4 = plt.subplot(gs[1, 1]);
-        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_, s=4.0);
+        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
         ax4.set_title('UMAP plot');
         ax4.set_xlabel('UMAP 1');
         ax4.set_ylabel('UMAP 2');
