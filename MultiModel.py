@@ -1,7 +1,12 @@
 import numpy as np
 import Bio.PDB
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import umap;
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.gridspec as gridspec
+from sklearn.cluster import KMeans
 import random
 import os
 
@@ -13,14 +18,16 @@ class MultiModel:
     pca_embedding = [];
     explained_variances = [];
     umap_embedding = [];
+    umap_model = [];
     classes = [];
     class_size = [];
 
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False, chain=""):
 
-        np.random.seed(30);
+        np.random.seed(100);
         print("Loading PDB files ...");
+
 
         for tmp_file in filenames:
             self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0]);
@@ -44,8 +51,6 @@ class MultiModel:
                     for (ref_chain, alt_chain) in zip(ref_model, alt_model):
 
                         for ref_res, alt_res in zip(ref_chain, alt_chain):
-                            assert ref_res.resname == alt_res.resname
-                            assert ref_res.id == alt_res.id
 
                             # CA = alpha carbon
                             aa = True;
@@ -64,10 +69,7 @@ class MultiModel:
                     alt_chain = alt_model[chain];
 
                     for ref_res, alt_res in zip(ref_chain, alt_chain):
-                        assert ref_res.resname == alt_res.resname
-                        assert ref_res.id == alt_res.id
 
-                        # CA = alpha carbon
                         aa = True;
                         try:
                             ref_res['CA'];
@@ -130,7 +132,7 @@ class MultiModel:
 
 
             tmp_coord = np.asarray(tmp_coord).flatten();
-            self.coord_array.append( tmp_coord);
+            self.coord_array.append(tmp_coord);
 
         self.coord_array = np.asarray(self.coord_array)
 
@@ -138,7 +140,6 @@ class MultiModel:
     #**************************************
     def do_pca_embedding(self):
 
-        from sklearn.decomposition import PCA
         pca = PCA();
         pca.fit(self.coord_array);
         self.explained_variances = pca.explained_variance_ratio_ * 100;
@@ -157,10 +158,8 @@ class MultiModel:
     #**************************************
     def do_umap_embedding(self, num_neighbors):
 
-        import umap;
-
-        fit = umap.UMAP(n_neighbors=num_neighbors);
-        self.umap_embedding = fit.fit_transform(self.coord_array);
+        self.umap_model = umap.UMAP(n_neighbors=num_neighbors).fit(self.coord_array);
+        self.umap_embedding = self.umap_model.transform(self.coord_array);
 
 
     #***************************************
@@ -168,7 +167,6 @@ class MultiModel:
 
         print("Classifying atomic models ...")
 
-        from sklearn.cluster import KMeans
         self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
 
         #get relative class sizes
@@ -180,9 +178,6 @@ class MultiModel:
 
     #***************************************
     def make_plots(self):
-
-        from matplotlib.backends.backend_pdf import PdfPages
-        import matplotlib.gridspec as gridspec
 
         colors = "jet"
         num_classes = self.classes.cluster_centers_.shape[0]
@@ -237,9 +232,23 @@ class MultiModel:
         ax4.legend(handles=scatter.legend_elements()[0], labels=label, title='Class\n(rel.size)', fontsize=4, title_fontsize=4,
                    bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.);
 
-
         plt.savefig("Model_Classification.pdf", dpi=300);
+        plt.close();
 
+    #***************************************
+    def probe_tmv(self):
+
+        colors = "jet"
+        umap_embedding = self.umap_model.transform(self.coord_array);
+
+        TMVLabels  =self.classes.labels_;
+        TMVLabels[:] = 0;
+        TMVLabels[200] = 1;
+        TMVLabels[201] = 2;
+
+        plt.scatter(umap_embedding[:,0], umap_embedding[:,1], c=TMVLabels, s=50.0, cmap=colors);
+
+        plt.savefig("TMV_probed.pdf", dpi=300);
 
     #***************************************
     def write_pdbs(self, chain):

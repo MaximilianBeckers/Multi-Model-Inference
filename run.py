@@ -1,5 +1,6 @@
 from MultiModel import MultiModel
 import argparse, os, sys
+import random
 import os.path
 import time
 
@@ -31,6 +32,7 @@ cmdl_parser.add_argument('-chain', type=str, required=False,
 def main():
 
 	start = time.time();
+	random.seed(2)
 
 	print('***************************************************');
 	print('************** Multi-Model analysis ***************');
@@ -40,7 +42,13 @@ def main():
 	args = cmdl_parser.parse_args();
 
 	num_classes = args.num_classes;
+
 	files = args.pdbs;
+
+	#for tmv probe
+	#files = random.sample(files, 200)
+	#files =  files + ["6sae.pdb", "6sag.pdb"];
+
 	if args.chain is None:
 		chain = "";
 	else:
@@ -51,6 +59,7 @@ def main():
 	else:
 		num_neighbors = args.num_neighbors;
 
+
 	m = MultiModel();
 	m.read_pdbs(files, CA = args.CA, chain=chain);
 	m.do_classification(num_classes);
@@ -58,6 +67,7 @@ def main():
 	m.do_umap_embedding(num_neighbors);
 	m.do_tsne_embedding(num_neighbors);
 	m.make_plots();
+	#m.probe_tmv();
 
 	if args.num_classes>1:
 		m.write_pdbs(chain=chain);
