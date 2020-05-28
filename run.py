@@ -1,9 +1,7 @@
 from MultiModel import MultiModel
-import argparse, os, sys
+import argparse, sys
 import random
-import os.path
 import time
-
 
 # *************************************************************
 # ****************** Commandline input ************************
@@ -46,7 +44,7 @@ def main():
 	files = args.pdbs;
 
 	#for tmv probe
-	#files = random.sample(files, 200)
+	#files = random.sample(files, 100)
 	#files =  files + ["6sae.pdb", "6sag.pdb"];
 
 	if args.chain is None:
@@ -77,7 +75,6 @@ def main():
 
 	print("****** Summary ******");
 	print("Runtime: %.2f" % totalRuntime);
-
 
 
 if (__name__ == "__main__"):

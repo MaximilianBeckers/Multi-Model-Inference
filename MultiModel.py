@@ -84,7 +84,6 @@ class MultiModel:
                 super_imposer = Bio.PDB.Superimposer()
                 super_imposer.set_atoms(ref_atoms, alt_atoms)
 
-
                 if (model_ind == 0):
                     # Check for self/self get zero RMS, zero translation
                     # and identity matrix for the rotation.
@@ -277,5 +276,5 @@ class MultiModel:
                 io.set_structure(self.coordinates[center_index]);
             else:
                 io.set_structure(self.coordinates[center_index][chain]);
-            io.save('Center_Cluster' + repr(tmp_class) + '.pdb');
+            io.save('Center_Class' + repr(tmp_class) + '.pdb');
 
