@@ -18,8 +18,8 @@ cmdl_parser.add_argument('-num_classes', '--num_classes', metavar="4", type=int,
 						 help='number of classes');
 cmdl_parser.add_argument('-num_neighbors', '--num_neighbors', metavar="4", type=int, required=False,
 						 help='number of neighbors for dimensionality reduction');
-cmdl_parser.add_argument('-CA', action='store_true', default=False,
-						 help='Flag for limiting analysis to CA atoms');
+cmdl_parser.add_argument('-all_atoms', action='store_true', default=False,
+						 help='Flag for performing analysis on all atoms');
 cmdl_parser.add_argument('-chain', type=str, required=False,
 						 help='The chain to be analysed');
 
@@ -59,10 +59,10 @@ def main():
 
 
 	m = MultiModel();
-	m.read_pdbs(files, CA = args.CA, chain=chain);
-	m.do_classification(num_classes);
+	m.read_pdbs(files, CA = not(args.all_atoms), chain=chain);
 	m.do_pca_embedding();
 	m.do_umap_embedding(num_neighbors);
+	m.do_classification(num_classes);
 	m.do_tsne_embedding(num_neighbors);
 	m.make_plots();
 	#m.probe_tmv();

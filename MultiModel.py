@@ -167,6 +167,7 @@ class MultiModel:
         print("Classifying atomic models ...")
 
         self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+        #self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
 
         #get relative class sizes
         _, self.class_size = np.unique(self.classes.labels_, return_counts=True);
@@ -265,6 +266,7 @@ class MultiModel:
             for tmp_sample in range(num_samples):
 
                 tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                #tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
 
                 if tmp_dist < min_dist:
                     center_index = tmp_sample;
