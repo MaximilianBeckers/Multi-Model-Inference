@@ -28,9 +28,11 @@ class MultiModel:
         np.random.seed(100);
         print("Loading PDB files ...");
 
-
         for tmp_file in filenames:
-            self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0]);
+            if chain == "":
+                self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0]);
+            else:
+                self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0][chain]);
 
         #align the structures
         if align:
@@ -65,8 +67,11 @@ class MultiModel:
 
                 else:
                     #subset the desired chain
-                    ref_chain = ref_model[chain];
-                    alt_chain = alt_model[chain];
+                    #ref_chain = ref_model[chain];
+                    #alt_chain = alt_model[chain];
+
+                    ref_chain = ref_model;
+                    alt_chain = alt_model;
 
                     for ref_res, alt_res in zip(ref_chain, alt_chain):
 
@@ -116,7 +121,9 @@ class MultiModel:
                             for tmp_atom in tmp_res:
                                 tmp_coord.append( tmp_atom.get_coord());
             else:
-                tmp_chain = tmp_model[chain];
+                #tmp_chain = tmp_model[chain];
+                tmp_chain = tmp_model;
+
                 for tmp_res in tmp_chain:
                     if (CA):
                         try:  # if CA atom exists, append it
@@ -133,8 +140,7 @@ class MultiModel:
             tmp_coord = np.asarray(tmp_coord).flatten();
             self.coord_array.append(tmp_coord);
 
-        self.coord_array = np.asarray(self.coord_array)
-
+        self.coord_array = np.asarray(self.coord_array);
 
     #**************************************
     def do_pca_embedding(self):
@@ -162,12 +168,15 @@ class MultiModel:
 
 
     #***************************************
-    def do_classification(self, num_classes):
+    def do_classification(self, num_classes, reduced=False):
 
         print("Classifying atomic models ...")
 
-        self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
-        #self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
+        #self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+        if reduced:
+            self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
+        else:
+            self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
 
         #get relative class sizes
         _, self.class_size = np.unique(self.classes.labels_, return_counts=True);
@@ -251,7 +260,7 @@ class MultiModel:
         plt.savefig("TMV_probed.pdf", dpi=300);
 
     #***************************************
-    def write_pdbs(self, chain):
+    def write_pdbs(self, filenames, reduced=True):
 
         print("Writing class centers as pdbs ...")
 
@@ -265,8 +274,12 @@ class MultiModel:
             center_index = 0;
             for tmp_sample in range(num_samples):
 
-                tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
-                #tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                #tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                if reduced:
+                    tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                else:
+                    tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+
 
                 if tmp_dist < min_dist:
                     center_index = tmp_sample;
@@ -274,9 +287,23 @@ class MultiModel:
 
             #write the structure
             io = Bio.PDB.PDBIO()
-            if chain == "":
-                io.set_structure(self.coordinates[center_index]);
-            else:
-                io.set_structure(self.coordinates[center_index][chain]);
+            io.set_structure(self.coordinates[center_index]);
             io.save('Center_Class' + repr(tmp_class) + '.pdb');
+
+
+
+            indices = np.asarray(range(self.classes.labels_.size));
+            models_in_class = indices[self.classes.labels_==tmp_class];
+            folder = "Class_" + repr(tmp_class);
+            os.mkdir(folder);
+
+            for tmp_model in models_in_class:
+
+                filename = folder + "/" + os.path.basename(filenames[tmp_model]);
+                io = Bio.PDB.PDBIO()
+                io.set_structure(self.coordinates[tmp_model]);
+                io.save(filename);
+
+
+
 
