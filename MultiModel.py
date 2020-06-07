@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import Bio.PDB
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
@@ -6,9 +7,16 @@ import matplotlib.pyplot as plt
 import umap;
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, OPTICS
+from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import cross_val_score
+from sklearn import svm
+from sklearn.linear_model import LogisticRegression
+import warnings
 import random
 import os
+import gc
+
 
 class MultiModel:
 
@@ -19,8 +27,10 @@ class MultiModel:
     explained_variances = [];
     umap_embedding = [];
     umap_model = [];
-    classes = [];
+    class_labels = [];
+    class_centers = [];
     class_size = [];
+    coeff_logReg = [];
 
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False, chain=""):
@@ -29,10 +39,18 @@ class MultiModel:
         print("Loading PDB files ...");
 
         for tmp_file in filenames:
+
+            #print("Loading file " + tmp_file);
+
             if chain == "":
-                self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0]);
+                tmp_struc = Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0];
             else:
-                self.coordinates.append(Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0][chain]);
+                tmp_struc = Bio.PDB.PDBParser().get_structure('hurz', tmp_file)[0][chain];
+
+            self.coordinates.append(tmp_struc);
+            #free memory
+        del tmp_struc;
+        gc.collect();
 
         #align the structures
         if align:
@@ -98,7 +116,8 @@ class MultiModel:
                 else:
                     # Update the structure by moving all the atoms in
                     # this model (not just the ones used for the alignment)
-                    super_imposer.apply(alt_model.get_atoms())
+                    alt_model = 0;
+                    super_imposer.apply( self.coordinates[model_ind].get_atoms())
 
 
         #make vector representation of coordinates
@@ -170,26 +189,107 @@ class MultiModel:
     #***************************************
     def do_classification(self, num_classes, reduced=False):
 
-        print("Classifying atomic models ...")
+        print("Classifying atomic models ...");
 
-        #self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
         if reduced:
-            self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
+            classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
         else:
-            self.classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+            classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+
+        self.class_labels = classes.labels_;
+        self.class_centers = classes.cluster_centers_;
 
         #get relative class sizes
-        _, self.class_size = np.unique(self.classes.labels_, return_counts=True);
+        _, self.class_size = np.unique(self.class_labels, return_counts=True);
         self.class_size = self.class_size/float(np.sum(self.class_size));
 
         for class_ind in range(num_classes):
             print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind]*100));
 
+    #****************************************
+    def SpectralClustering(self, num_classes):
+
+        classes = SpectralClustering(n_clusters=num_classes).fit(self.coord_array)
+        self.class_labels = classes.labels_;
+
+    #****************************************
+    def DBSCAN(self):
+
+        classes = DBSCAN().fit(self.coord_array);
+        self.class_labels = classes.labels_;
+
+    #****************************************
+    def GaussianMixture(self, num_classes, reduced=False):
+
+        print("Fitting Gaussian Mixture Model ...");
+
+        GM = GaussianMixture(n_components=num_classes, max_iter=20, covariance_type='full');
+
+        if reduced:
+            self.class_labels = GM.fit_predict(self.umap_embedding);
+        else:
+            self.class_labels = GM.fit_predict(self.coord_array);
+
+        self.class_centers = GM.means_;
+
+        # get relative class sizes
+        _, self.class_size = np.unique(self.class_labels, return_counts=True);
+        self.class_size = self.class_size / float(np.sum(self.class_size));
+
+        for class_ind in range(num_classes):
+            print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind] * 100));
+
+    #***************************************
+    def validation(self):
+
+        warnings.filterwarnings("ignore")
+        #clf = svm.SVC(gamma=1, C=1);
+        clf = LogisticRegression(random_state=0, multi_class='multinomial', solver='lbfgs', max_iter=1000);
+        logistic_regression = clf.fit(self.coord_array, self.class_labels);
+
+        #save the regression coefficients
+        self.coeff_logReg = logistic_regression.coef_;
+
+        scores = cross_val_score(clf, self.coord_array, self.class_labels, cv=5);
+        print("Accuracy: %0.2f" % (scores.mean()))
+
+    #***************************************
+    def plot_coeffs(self):
+
+        num_classes = self.class_size.size;
+        gs = gridspec.GridSpec(math.ceil(num_classes/2), 2, wspace=0.5, hspace=1.0);
+
+        #average the logistic regression coefficients for the atoms
+        num_coeffs = self.coeff_logReg.shape;
+        coeffs_avg = np.zeros((num_coeffs[0], int(num_coeffs[1]/3)));
+
+        for coord_ind in range(coeffs_avg.shape[1]):
+
+            coeffs_avg[:,coord_ind] = np.mean(self.coeff_logReg[:,coord_ind*3:(coord_ind*3)+3], axis=1);
+
+
+        #generate the plots
+        class_ind = 0;
+        for x_ind in range(math.ceil(num_classes/2)):
+            for y_ind in range(2):
+
+                res_ids = range(coeffs_avg.shape[1]);
+                ax = plt.subplot(gs[x_ind, y_ind]);
+                ax.set_title('Class ' + repr(class_ind));
+                ax.plot(res_ids, np.abs(coeffs_avg[class_ind,:]));
+                class_ind = class_ind + 1;
+
+                if class_ind >= (num_classes-1):
+                    break;
+
+        plt.savefig("regression_coefficients.pdf",dpi=600);
+        plt.close();
+
     #***************************************
     def make_plots(self):
 
         colors = "jet"
-        num_classes = self.classes.cluster_centers_.shape[0]
+        num_classes = self.class_centers.shape[0]
         tmp_label = range(num_classes);
         label = [""]*num_classes;
         for class_ind in range(num_classes):
@@ -203,7 +303,7 @@ class MultiModel:
 
         #plot pca
         ax1 = plt.subplot(gs[0, 0]);
-        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
+        scatter = ax1.scatter(self.pca_embedding[:,0], self.pca_embedding[:,1], c=self.class_labels, s=4.0, cmap=colors);
         ax1.set_title('PCA plot');
         ax1.set_xlabel('PC 1');
         ax1.set_ylabel('PC 2');
@@ -225,7 +325,7 @@ class MultiModel:
 
         #plot t-SNE
         ax3 = plt.subplot(gs[1, 0]);
-        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
+        scatter = ax3.scatter(self.tsne_embedding[:,0], self.tsne_embedding[:,1], c=self.class_labels, s=4.0, cmap=colors);
         ax3.set_title('t-SNE plot');
         ax3.set_xlabel('t-SNE 1');
         ax3.set_ylabel('t-SNE 2');
@@ -234,7 +334,7 @@ class MultiModel:
 
         #plot umap
         ax4 = plt.subplot(gs[1, 1]);
-        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.classes.labels_, s=4.0, cmap=colors);
+        scatter = ax4.scatter(self.umap_embedding[:,0], self.umap_embedding[:,1], c=self.class_labels, s=4.0, cmap=colors);
         ax4.set_title('UMAP plot');
         ax4.set_xlabel('UMAP 1');
         ax4.set_ylabel('UMAP 2');
@@ -264,8 +364,8 @@ class MultiModel:
 
         print("Writing class centers as pdbs ...")
 
-        num_classes = self.classes.cluster_centers_.shape[0];
-        num_samples = self.classes.labels_.shape[0];
+        num_classes = self.class_centers.shape[0];
+        num_samples = self.class_labels.shape[0];
 
         for tmp_class in range(num_classes):
 
@@ -276,9 +376,9 @@ class MultiModel:
 
                 #tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
                 if reduced:
-                    tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                    tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.class_centers[tmp_class,:])));
                 else:
-                    tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                    tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.class_centers[tmp_class,:])));
 
 
                 if tmp_dist < min_dist:
@@ -289,11 +389,11 @@ class MultiModel:
             io = Bio.PDB.PDBIO()
             io.set_structure(self.coordinates[center_index]);
             io.save('Center_Class' + repr(tmp_class) + '.pdb');
+            del io;
+            gc.collect();
 
-
-
-            indices = np.asarray(range(self.classes.labels_.size));
-            models_in_class = indices[self.classes.labels_==tmp_class];
+            indices = np.asarray(range(self.class_labels.size));
+            models_in_class = indices[self.class_labels==tmp_class];
             folder = "Class_" + repr(tmp_class);
             os.mkdir(folder);
 
@@ -303,6 +403,9 @@ class MultiModel:
                 io = Bio.PDB.PDBIO()
                 io.set_structure(self.coordinates[tmp_model]);
                 io.save(filename);
+
+            del io;
+            gc.collect();
 
 
 

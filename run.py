@@ -64,8 +64,11 @@ def main():
 	m.do_pca_embedding();
 	m.do_umap_embedding(num_neighbors);
 	m.do_classification(num_classes, args.reduced);
+	#m.GaussianMixture(num_classes,args.reduced);
 	m.do_tsne_embedding(num_neighbors);
 	m.make_plots();
+	m.validation();
+	m.plot_coeffs();
 	#m.probe_tmv();
 
 	if args.num_classes>1:
