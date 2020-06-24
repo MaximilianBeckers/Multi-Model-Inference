@@ -25,6 +25,7 @@ cmdl_parser.add_argument('-reduced', action='store_true', default=False,
 cmdl_parser.add_argument('-chain', type=str, required=False,
 						 help='The chain to be analysed');
 
+
 # ************************************************************
 # ********************** main function ***********************
 # ************************************************************
@@ -61,17 +62,18 @@ def main():
 
 	m = MultiModel();
 	m.read_pdbs(files, CA = not(args.all_atoms), chain=chain);
+	m.do_classification(num_classes, args.reduced);
 	m.do_pca_embedding();
 	m.do_umap_embedding(num_neighbors);
-	m.do_classification(num_classes, args.reduced);
 	#m.GaussianMixture(num_classes,args.reduced);
 	m.do_tsne_embedding(num_neighbors);
 	m.make_plots();
-	m.validation();
-	m.plot_coeffs();
 	#m.probe_tmv();
 
 	if args.num_classes>1:
+		#m.SVM();
+		m.logistic_regression();
+		m.plot_coeffs();
 		m.write_pdbs(files, args.reduced);
 
 	end = time.time();

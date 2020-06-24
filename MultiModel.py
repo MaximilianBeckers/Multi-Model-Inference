@@ -4,6 +4,7 @@ import Bio.PDB
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import umap;
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
@@ -22,15 +23,20 @@ class MultiModel:
 
     coordinates = [];
     coord_array = [];
+    res_id = [];
     tsne_embedding = [];
     pca_embedding = [];
     explained_variances = [];
     umap_embedding = [];
     umap_model = [];
     class_labels = [];
+    good_classes = [];
+    junk_classes = [];
     class_centers = [];
     class_size = [];
+    abs_class_size = [];
     coeff_logReg = [];
+    cv_score = 0;
 
     #************************************
     def read_pdbs(self, filenames, align=True, CA=False, chain=""):
@@ -125,41 +131,58 @@ class MultiModel:
         for tmp_model in self.coordinates:
 
             tmp_coord = [];
+            tmp_res_id = [];
 
             if chain == "":
                 for tmp_chain in tmp_model:
+
+                    chain_id = tmp_chain.id;
+
                     for tmp_res in tmp_chain:
+                        res_id = tmp_res.id;
+                        res_name = repr(chain_id) + repr(res_id[1]);
                         if(CA):
                             try:#if CA atom exists, append it
                                 tmp_atom = tmp_res['CA'];
                                 tmp_coord.append(tmp_atom.get_coord());
+                                tmp_res_id.append([res_name, res_name, res_name])
                             except:
                                 pass
                         else:
                             #append all atoms
                             for tmp_atom in tmp_res:
                                 tmp_coord.append( tmp_atom.get_coord());
+                                tmp_res_id.append([res_name, res_name, res_name])
             else:
-                #tmp_chain = tmp_model[chain];
                 tmp_chain = tmp_model;
 
+                chain_id = tmp_chain.id;
+
                 for tmp_res in tmp_chain:
+                    res_id = tmp_res.id;
+                    res_name = repr(chain_id) + repr(res_id[1]);
                     if (CA):
                         try:  # if CA atom exists, append it
                             tmp_atom = tmp_res['CA'];
                             tmp_coord.append(tmp_atom.get_coord());
+                            tmp_res_id.append([res_name, res_name, res_name])
                         except:
                             pass
                     else:
                         # append all atoms
                         for tmp_atom in tmp_res:
                             tmp_coord.append(tmp_atom.get_coord());
+                            tmp_res_id.append([res_name, res_name, res_name])
 
 
             tmp_coord = np.asarray(tmp_coord).flatten();
             self.coord_array.append(tmp_coord);
 
+            tmp_res_id = np.asarray(tmp_res_id).flatten();
+            self.res_id= tmp_res_id;
+
         self.coord_array = np.asarray(self.coord_array);
+        self.res_id = np.asarray(self.res_id);
 
     #**************************************
     def do_pca_embedding(self):
@@ -200,97 +223,134 @@ class MultiModel:
         self.class_centers = classes.cluster_centers_;
 
         #get relative class sizes
-        _, self.class_size = np.unique(self.class_labels, return_counts=True);
-        self.class_size = self.class_size/float(np.sum(self.class_size));
+        _, self.abs_class_size = np.unique(self.class_labels, return_counts=True);
+        self.class_size = self.abs_class_size/float(np.sum(self.abs_class_size));
+
+        # sort classes according to size
+        sorted_classes = np.flip(np.argsort(self.class_size));
+        self.class_size = self.class_size[sorted_classes];
+        self.class_centers = self.class_centers[sorted_classes];
+        self.abs_class_size = self.abs_class_size[sorted_classes];
+
+        for tmp_sample in range(self.class_labels.size):
+            self.class_labels[tmp_sample] = sorted_classes[self.class_labels[tmp_sample]];
 
         for class_ind in range(num_classes):
             print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind]*100));
 
-    #****************************************
-    def SpectralClustering(self, num_classes):
 
-        classes = SpectralClustering(n_clusters=num_classes).fit(self.coord_array)
-        self.class_labels = classes.labels_;
+        #take all classes with size >=10
+        self.good_classes = np.argwhere(self.abs_class_size>=10).flatten();
+        self.junk_classes = np.argwhere(self.abs_class_size<10).flatten();
 
-    #****************************************
-    def DBSCAN(self):
 
-        classes = DBSCAN().fit(self.coord_array);
-        self.class_labels = classes.labels_;
 
-    #****************************************
-    def GaussianMixture(self, num_classes, reduced=False):
+        #self.class_labels[np.isin(self.class_labels, junk_classes)] = -1;
 
-        print("Fitting Gaussian Mixture Model ...");
+        #new_class = 0;
+        #for tmp_class in final_classes:
+        #    self.class_labels[self.class_labels == tmp_class] = new_class;
+        #    new_class = new_class + 1;
 
-        GM = GaussianMixture(n_components=num_classes, max_iter=20, covariance_type='full');
-
-        if reduced:
-            self.class_labels = GM.fit_predict(self.umap_embedding);
-        else:
-            self.class_labels = GM.fit_predict(self.coord_array);
-
-        self.class_centers = GM.means_;
-
-        # get relative class sizes
-        _, self.class_size = np.unique(self.class_labels, return_counts=True);
-        self.class_size = self.class_size / float(np.sum(self.class_size));
-
-        for class_ind in range(num_classes):
-            print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind] * 100));
+        #self.class_size = self.class_size[final_classes];
+        #self.abs_class_size = self.abs_class_size[final_classes];
+        #self.class_centers = self.class_centers[final_classes];
+        #self.coord_array = self.coord_array[np.isin(self.class_labels, final_classes)];
+        #print(np.arange(self.class_labels.size)[np.isin(self.class_labels, final_classes)]);
+        #self.coordinates = [self.coordinates[i] for i in np.arange(self.class_labels.size)[np.isin(self.class_labels, final_classes)]];
+        #self.class_labels = self.class_labels[np.isin(self.class_labels, final_classes)];
 
     #***************************************
-    def validation(self):
+    def SVM(self):
 
-        warnings.filterwarnings("ignore")
-        #clf = svm.SVC(gamma=1, C=1);
+        print("Training support vector machine ...");
+
+        warnings.filterwarnings("ignore");
+        clf = svm.SVC(kernel='rbf');
+        #clf.fit(self.coord_array, self.class_labels);
+
+        scores = cross_val_score(clf, self.coord_array[np.isin(self.class_labels, self.good_classes)], self.class_labels[np.isin(self.class_labels, self.good_classes)], cv=5);
+        self.cv_score = scores.mean()*100;
+        if scores.mean() < 0.95:
+            print("Cross-validation score of cluster assignment: {:.2f} %".format(scores.mean() * 100));
+            print("WARNING: Data is likely overclustered! Cross-validation score < 95%");
+        else:
+            print("Cross-validation score of cluster assignment: {:.2f} %".format(scores.mean() * 100));
+
+    #***************************************
+    def logistic_regression(self):
+
+        print("Training of logistic regression ...");
+
+        warnings.filterwarnings("ignore");
         clf = LogisticRegression(random_state=0, multi_class='multinomial', solver='lbfgs', max_iter=1000);
         logistic_regression = clf.fit(self.coord_array, self.class_labels);
 
         #save the regression coefficients
         self.coeff_logReg = logistic_regression.coef_;
 
-        scores = cross_val_score(clf, self.coord_array, self.class_labels, cv=5);
-        print("Accuracy: %0.2f" % (scores.mean()))
+        scores = cross_val_score(clf, self.coord_array[np.isin(self.class_labels, self.good_classes)], self.class_labels[np.isin(self.class_labels, self.good_classes)], cv=5);
+        self.cv_score = scores.mean()*100;
+        if scores.mean() < 0.95:
+            print("Cross-validation score of cluster assignment: {:.2f} %".format(scores.mean() * 100));
+            print("WARNING: Data is likely overclustered! Cross-validation score < 95%");
+        else:
+            print("Cross-validation score of cluster assignment: {:.2f} %".format(scores.mean()*100));
 
     #***************************************
     def plot_coeffs(self):
 
-        num_classes = self.class_size.size;
+        num_classes = self.good_classes.size;
+
+        fig = plt.figure()
+        fig.suptitle("Cross-validation score of cluster assignment: {:.2f} %".format(self.cv_score));
         gs = gridspec.GridSpec(math.ceil(num_classes/2), 2, wspace=0.5, hspace=1.0);
 
-        #average the logistic regression coefficients for the atoms
-        num_coeffs = self.coeff_logReg.shape;
-        coeffs_avg = np.zeros((num_coeffs[0], int(num_coeffs[1]/3)));
+        #get unique residue identifiers
+        _, idx = np.unique(self.res_id, return_index=True);
+        unique_res_ids = self.res_id[np.sort(idx)];
 
-        for coord_ind in range(coeffs_avg.shape[1]):
-
-            coeffs_avg[:,coord_ind] = np.mean(self.coeff_logReg[:,coord_ind*3:(coord_ind*3)+3], axis=1);
-
+        # average the logistic regression coefficients of each residue
+        coeffs_avg = np.zeros((num_classes, unique_res_ids.size));
+        i = 0;
+        for tmp_res in unique_res_ids:
+            coeffs_avg[:, i] = np.mean(self.coeff_logReg[:num_classes, np.nonzero(self.res_id==tmp_res)], axis=2).flatten();
+            i = i+1;
 
         #generate the plots
-        class_ind = 0;
+        tmp_class_ind = 0;
         for x_ind in range(math.ceil(num_classes/2)):
             for y_ind in range(2):
+
+                class_ind = self.good_classes[tmp_class_ind];
 
                 res_ids = range(coeffs_avg.shape[1]);
                 ax = plt.subplot(gs[x_ind, y_ind]);
                 ax.set_title('Class ' + repr(class_ind));
-                ax.plot(res_ids, np.abs(coeffs_avg[class_ind,:]));
-                class_ind = class_ind + 1;
+                ax.plot(unique_res_ids, np.abs(coeffs_avg[class_ind,:]));
+                xticks = ticker.MaxNLocator(10);
+                ax.xaxis.set_major_locator(xticks);
+                ax.tick_params(labelsize=4)
 
-                if class_ind >= (num_classes-1):
+                #label the peaks
+                sorted_indices = np.argsort(np.abs(coeffs_avg[class_ind, :]));
+                sorted_indices = sorted_indices[::-1]; #reverse order
+                for tmp_ind in sorted_indices[0:5]:
+                    ax.annotate(unique_res_ids[tmp_ind], (tmp_ind, np.abs(coeffs_avg[class_ind, tmp_ind])), ha='center', fontsize=5);
+
+                tmp_class_ind = tmp_class_ind + 1;
+                if tmp_class_ind > (num_classes-1):
                     break;
 
-        plt.savefig("regression_coefficients.pdf",dpi=600);
+        plt.savefig("Regression_Coefficients.pdf",dpi=600);
         plt.close();
 
     #***************************************
     def make_plots(self):
 
         colors = "jet"
-        num_classes = self.class_centers.shape[0]
-        tmp_label = range(num_classes);
+        num_classes = np.unique(self.class_labels).size;
+        tmp_label = np.unique(self.class_labels);
         label = [""]*num_classes;
         for class_ind in range(num_classes):
             label[class_ind] = "{}\n({:.0f}%)".format(tmp_label[class_ind], self.class_size[class_ind]*100);
@@ -367,30 +427,32 @@ class MultiModel:
         num_classes = self.class_centers.shape[0];
         num_samples = self.class_labels.shape[0];
 
-        for tmp_class in range(num_classes):
-
-            #get sample closest to center of cluster
-            min_dist = 1.0*10**10;
-            center_index = 0;
-            for tmp_sample in range(num_samples):
-
-                #tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
-                if reduced:
-                    tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.class_centers[tmp_class,:])));
-                else:
-                    tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.class_centers[tmp_class,:])));
+        for tmp_class in np.unique(self.class_labels):
 
 
-                if tmp_dist < min_dist:
-                    center_index = tmp_sample;
-                    min_dist = tmp_dist;
+            if tmp_class != -1:
+                #get sample closest to center of cluster
+                min_dist = 1.0*10**10;
+                center_index = 0;
+                for tmp_sample in range(num_samples):
 
-            #write the structure
-            io = Bio.PDB.PDBIO()
-            io.set_structure(self.coordinates[center_index]);
-            io.save('Center_Class' + repr(tmp_class) + '.pdb');
-            del io;
-            gc.collect();
+                    #tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.classes.cluster_centers_[tmp_class,:])));
+                    if reduced:
+                        tmp_dist = np.sqrt(np.sum(np.square(self.umap_embedding[tmp_sample,:] - self.class_centers[tmp_class,:])));
+                    else:
+                        tmp_dist = np.sqrt(np.sum(np.square(self.coord_array[tmp_sample,:] - self.class_centers[tmp_class,:])));
+
+
+                    if tmp_dist < min_dist:
+                        center_index = tmp_sample;
+                        min_dist = tmp_dist;
+
+                #write the structure
+                io = Bio.PDB.PDBIO()
+                io.set_structure(self.coordinates[center_index]);
+                io.save('Center_Class' + repr(tmp_class) + '.pdb');
+                del io;
+                gc.collect();
 
             indices = np.asarray(range(self.class_labels.size));
             models_in_class = indices[self.class_labels==tmp_class];
