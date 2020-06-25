@@ -233,7 +233,7 @@ class MultiModel:
         self.abs_class_size = self.abs_class_size[sorted_classes];
 
         for tmp_sample in range(self.class_labels.size):
-            self.class_labels[tmp_sample] = sorted_classes[self.class_labels[tmp_sample]];
+            self.class_labels[tmp_sample] = np.argwhere(sorted_classes == self.class_labels[tmp_sample]);
 
         for class_ind in range(num_classes):
             print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind]*100));
@@ -243,7 +243,8 @@ class MultiModel:
         self.good_classes = np.argwhere(self.abs_class_size>=10).flatten();
         self.junk_classes = np.argwhere(self.abs_class_size<10).flatten();
 
-
+        #print(self.good_classes)
+        #print(self.class_labels)
 
         #self.class_labels[np.isin(self.class_labels, junk_classes)] = -1;
 
