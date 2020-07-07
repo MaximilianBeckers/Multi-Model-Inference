@@ -70,11 +70,13 @@ def main():
 	m.make_plots();
 	#m.probe_tmv();
 
-	if args.num_classes>1:
+	if m.good_classes.size > 1:
 		#m.SVM();
 		m.logistic_regression();
 		m.plot_coeffs();
 		m.write_pdbs(files, args.reduced);
+	else:
+		print("Only one class with more than 10 samples. No logistic regression will be performed ...");
 
 	end = time.time();
 	totalRuntime = end - start;
