@@ -47,7 +47,7 @@ def main():
 	files = args.pdbs;
 
 	#for tmv probe
-	files = random.sample(files, 200)
+	#files = random.sample(files, 200)
 	#files =  files + ["6sae.pdb", "6sag.pdb"];
 
 	if args.chain is None:
