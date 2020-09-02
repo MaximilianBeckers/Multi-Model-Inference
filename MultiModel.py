@@ -8,8 +8,8 @@ from matplotlib import ticker
 import umap;
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
-from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, OPTICS
-from sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans, SpectralClustering, DBSCAN, OPTICS, AgglomerativeClustering
+from scipy.cluster.hierarchy import dendrogram
 from sklearn.model_selection import cross_val_score
 from sklearn import svm
 from sklearn.linear_model import LogisticRegression
@@ -210,17 +210,57 @@ class MultiModel:
 
 
     #***************************************
+    def plot_dendrogram(self):
+
+        model = AgglomerativeClustering(distance_threshold=0,n_clusters=None).fit(self.coord_array);
+
+        # Create linkage matrix and then plot the dendrogram
+        # create the counts of samples under each node
+        counts = np.zeros(model.children_.shape[0])
+        n_samples = len(model.labels_)
+        for i, merge in enumerate(model.children_):
+            current_count = 0
+            for child_idx in merge:
+                if child_idx < n_samples:
+                    current_count += 1  # leaf node
+                else:
+                    current_count += counts[child_idx - n_samples]
+            counts[i] = current_count
+
+        linkage_matrix = np.column_stack([model.children_, model.distances_,
+                                          counts]).astype(float)
+
+        # Plot the corresponding dendrogram
+        R = dendrogram(linkage_matrix, truncate_mode='level', p=50);
+        plt.title('Hierarchical Clustering Dendrogram')
+        plt.xticks([])
+        #plt.xlabel("Number of points in node (or index of point if no parenthesis).")
+        plt.savefig("dendrogram.pdf", dpi=300)
+        plt.close()
+
+
+    #***************************************
     def do_classification(self, num_classes, reduced=False):
 
         print("Classifying atomic models ...");
 
         if reduced:
             classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.umap_embedding);
+            #classes = AgglomerativeClustering(n_clusters=num_classes).fit(self.umap_embedding);
         else:
             classes = KMeans(n_clusters=num_classes, random_state=0).fit(self.coord_array);
+            #classes = AgglomerativeClustering(n_clusters=num_classes).fit(self.coord_array);
+
 
         self.class_labels = classes.labels_;
         self.class_centers = classes.cluster_centers_;
+
+        #*********************
+        #get means of clusters
+        #self.class_centers = np.zeros((num_classes, self.coord_array.shape[1]));
+        #for tmp_class in range(num_classes):
+        #    self.class_centers[tmp_class, :] = np.mean(self.coord_array[classes.labels_ == tmp_class, :], axis=0);
+        #*********************
 
         #get relative class sizes
         _, self.abs_class_size = np.unique(self.class_labels, return_counts=True);
@@ -232,8 +272,10 @@ class MultiModel:
         self.class_centers = self.class_centers[sorted_classes];
         self.abs_class_size = self.abs_class_size[sorted_classes];
 
+
         for tmp_sample in range(self.class_labels.size):
             self.class_labels[tmp_sample] = np.argwhere(sorted_classes == self.class_labels[tmp_sample]);
+
 
         for class_ind in range(num_classes):
             print("Relative size of class {}: {:.2f}%.".format(class_ind, self.class_size[class_ind]*100));
@@ -297,6 +339,7 @@ class MultiModel:
             print("WARNING: Data is likely overclustered! Cross-validation score < 95%");
         else:
             print("Cross-validation score of cluster assignment: {:.2f} %".format(scores.mean()*100));
+
 
     #***************************************
     def plot_coeffs(self):

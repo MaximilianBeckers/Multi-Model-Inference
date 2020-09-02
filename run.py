@@ -47,7 +47,7 @@ def main():
 	files = args.pdbs;
 
 	#for tmv probe
-	#files = random.sample(files, 200)
+	files = random.sample(files, 200)
 	#files =  files + ["6sae.pdb", "6sag.pdb"];
 
 	if args.chain is None:
@@ -62,12 +62,13 @@ def main():
 
 	m = MultiModel();
 	m.read_pdbs(files, CA = not(args.all_atoms), chain=chain);
-	m.do_classification(num_classes, args.reduced);
 	m.do_pca_embedding();
 	m.do_umap_embedding(num_neighbors);
-	#m.GaussianMixture(num_classes,args.reduced);
 	m.do_tsne_embedding(num_neighbors);
+	m.do_classification(num_classes, args.reduced);
 	m.make_plots();
+	
+	m.plot_dendrogram();
 	#m.probe_tmv();
 
 	if m.good_classes.size > 1:
