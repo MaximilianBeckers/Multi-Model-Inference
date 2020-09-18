@@ -4,6 +4,7 @@
 import numpy as np
 import sklearn
 from sklearn.cluster import AgglomerativeClustering, KMeans
+from sklearn.mixture import GaussianMixture
 
 #----------------------------------------------------------------
 def kmeans(data, num_classes):
@@ -11,6 +12,15 @@ def kmeans(data, num_classes):
     clustering = KMeans(n_clusters=num_classes, random_state=0).fit(data);
     
     return clustering.cluster_centers_, clustering.labels_;
+
+
+#----------------------------------------------------------------
+def GaussMixture(data, num_classes):
+    
+    gm = GaussianMixture(n_components= num_classes).fit(data);
+    labels = gm.predict(data);
+    
+    return gm.means_, labels;
 
 #----------------------------------------------------------------
 def UPGMA(data, num_classes):

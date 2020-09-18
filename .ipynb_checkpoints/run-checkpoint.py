@@ -60,6 +60,8 @@ def main():
         algorithm = "kmeans";
     elif args.algorithm == "UPGMA":
         algorithm = "UPGMA";
+    elif args.algorithm == "GaussianMixture":
+        algorithm = "GaussianMixture";
     else:
         print("ERROR: Algorithm not implemented");
         sys.exit();
