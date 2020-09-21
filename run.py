@@ -54,12 +54,14 @@ def main():
     files = args.pdbs;
 
     #for tmv probe
-    #files = random.sample(files, 200)
+    #files = random.sample(files, 100)
+    #print(len(files))
     #files =  files + ["6sae.pdb", "6sag.pdb"];
+
     if (args.algorithm is None) or (args.algorithm =="kmeans"):
         algorithm = "kmeans";
-    elif args.algorithm == "UPGMA":
-        algorithm = "UPGMA";
+    elif args.algorithm == "Ward":
+        algorithm = "Ward";
     elif args.algorithm == "GaussianMixture":
         algorithm = "GaussianMixture";
     else:

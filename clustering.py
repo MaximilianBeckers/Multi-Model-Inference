@@ -8,7 +8,9 @@ from sklearn.mixture import GaussianMixture
 
 #----------------------------------------------------------------
 def kmeans(data, num_classes):
-    
+
+    print("Using k-means clustering to predict classes and class centers ...");
+
     clustering = KMeans(n_clusters=num_classes, random_state=0).fit(data);
     
     return clustering.cluster_centers_, clustering.labels_;
@@ -16,6 +18,8 @@ def kmeans(data, num_classes):
 
 #----------------------------------------------------------------
 def GaussMixture(data, num_classes):
+
+    print("Using Gaussian Mixture model to predict classes and class centers ...");
     
     gm = GaussianMixture(n_components= num_classes).fit(data);
     labels = gm.predict(data);
@@ -23,16 +27,19 @@ def GaussMixture(data, num_classes):
     return gm.means_, labels;
 
 #----------------------------------------------------------------
-def UPGMA(data, num_classes):
-    
-    clustering = AgglomerativeClustering(n_clusters=num_classes, linkage='average')
+def Ward(data, num_classes):
+
+
+    print("Using Hierarchical Ward clustering to predict classes and class centers ...");
+
+    clustering = AgglomerativeClustering(n_clusters=num_classes, linkage='ward')
     clustering.fit(data);
     
     #get centers of clusters
     class_centers = np.zeros((num_classes, data.shape[1]));
     for tmp_class in range(num_classes):    
     
-        class_centers[tmp_class, :] = get_class_center(data[clustering.labels_==tmp_class,:]);
+        class_centers[tmp_class, :] = get_class_center(data[clustering.labels_==tmp_class, :]);
     
     return class_centers, clustering.labels_;
 

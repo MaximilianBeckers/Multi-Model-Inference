@@ -248,16 +248,16 @@ class MultiModel:
         if reduced:
             if algorithm == "kmeans":
                 self.class_centers, self.class_labels = clustering.kmeans(self.umap_embedding, num_classes);
-            elif algorithm == "UPGMA":
-                self.class_centers, self.class_labels = clustering.UPGMA(self.umap_embedding, num_classes);
+            elif algorithm == "Ward":
+                self.class_centers, self.class_labels = clustering.Ward(self.umap_embedding, num_classes);
             elif algorithm == "GaussianMixture":
                 self.class_centers, self.class_labels = clustering.GaussMixture(self.umap_embedding, num_classes);
 
         else:
             if algorithm == "kmeans":
                 self.class_centers, self.class_labels = clustering.kmeans(self.coord_array, num_classes);
-            elif algorithm == "UPGMA":
-                self.class_centers, self.class_labels = clustering.UPGMA(self.coord_array, num_classes);
+            elif algorithm == "Ward":
+                self.class_centers, self.class_labels = clustering.Ward(self.coord_array, num_classes);
             elif algorithm == "GaussianMixture":
                 self.class_centers, self.class_labels = clustering.GaussMixture(self.coord_array, num_classes);
 
